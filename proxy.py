@@ -35,18 +35,25 @@ def proxy(path):
             params=query_params,
             headers=headers,
             data=body,
-            stream=False,
+            stream=True,
             timeout=10
         )
 
-        response_headers = dict(response.headers)
-        for header in ['Transfer-Encoding', 'Connection', 'Content-Encoding']:
-            response_headers.pop(header, None)
+        excluded_headers = ['Transfer-Encoding', 'Connection', 'Content-Encoding', 'Content-Length']
+        response_headers = {key: value for key, value in response.headers.items()
+                            if key not in excluded_headers}
+
+        content_type = response.headers.get('Content-Type', 'application/octet-stream')
+        content_length = response.headers.get('Content-Length')
 
         return Response(
-            response.content,
+            response.iter_content(chunk_size=8192),
             status=response.status_code,
-            headers=response_headers
+            headers={
+                **response_headers,
+                'Content-Type': content_type,
+                'Content-Length': content_length or str(len(response.content))
+            }
         )
 
     except requests.RequestException as e:
